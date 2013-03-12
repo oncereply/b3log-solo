@@ -23,7 +23,9 @@
     </parent>
     
     <properties>
-        <maven-gae-plugin.version>0.9.4</maven-gae-plugin.version>    
+        <maven-gae-plugin.version>0.9.5</maven-gae-plugin.version>
+        <gae.version>1.7.5</gae.version>
+        <gae-runtime.version>1.7.5.1</gae-runtime.version>
         <gae.dev_sever.port>8080</gae.dev_sever.port>
     </properties>
 
@@ -116,6 +118,7 @@
                 <artifactId>maven-gae-plugin</artifactId>
                 <version>${maven-gae-plugin.version}</version>
                 <configuration>
+                    <unpackVersion>${gae.version}</unpackVersion>
                     <serverId>appengine.google.com</serverId>
                     <sdkDir>${settings.localRepository}/com/google/appengine/appengine-java-sdk/${gae.version}/appengine-java-sdk-${gae.version}</sdkDir>
                     <appDir>${project.build.directory}/${project.build.finalName}</appDir>
@@ -126,6 +129,14 @@
                         <jvmFlag>-Dappengine.user.timezone=UTC</jvmFlag>
                     </jvmFlags>
                 </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>net.kindleit</groupId>
+                        <artifactId>gae-runtime</artifactId>
+                        <version>${gae-runtime.version}</version>
+                        <type>pom</type>
+                    </dependency>
+                </dependencies>
             </plugin>
             
             <plugin>
