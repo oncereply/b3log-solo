@@ -18,7 +18,7 @@
  *
  * @author <a href="mailto:LLY219@gmail.com">Liyuan Li</a>
  * @author <a href="mailto:DL88250@gmail.com">Liang Ding</a>
- * @version 1.0.1.6, Aug 26, 2012
+ * @version 1.0.1.8, May 28, 2013
  */
 
 /* preference 相关操作 */
@@ -45,12 +45,6 @@ admin.preference = {
                 
                 var preference = result.preference;
                 
-                // 线上环境严禁使用 localhost, 默认将其设为 host
-                if (preference.blogHost.indexOf("localhost") > -1 && Label.miniPostfix === ".min") {
-                    preference.blogHost = window.location.host;
-                    $("#tipMsg").text(Label.resetBlogHostLabel);
-                }
-                
                 $("#metaKeywords").val(preference.metaKeywords),
                 $("#metaDescription").val(preference.metaDescription),
                 $("#blogTitle").val(preference.blogTitle),
@@ -61,7 +55,6 @@ admin.preference = {
                 $("#mostUsedTagDisplayCount").val(preference.mostUsedTagDisplayCount);
                 $("#articleListDisplayCount").val(preference.articleListDisplayCount);
                 $("#articleListPaginationWindowSize").val(preference.articleListPaginationWindowSize);
-                $("#blogHost").val(preference.blogHost);
                 $("#localeString").val(preference.localeString);
                 $("#timeZoneId").val(preference.timeZoneId);
                 $("#noticeBoard").val(preference.noticeBoard);
@@ -71,7 +64,6 @@ admin.preference = {
                 $("#randomArticlesDisplayCount").val(preference.randomArticlesDisplayCount);
                 $("#keyOfSolo").val(preference.keyOfSolo);
                 preference.enableArticleUpdateHint ? $("#enableArticleUpdateHint").attr("checked", "checked") : $("#enableArticleUpdateHint").removeAttr("checked");
-                        
                 preference.allowVisitDraftViaPermalink ? $("#allowVisitDraftViaPermalink").attr("checked", "checked") : $("allowVisitDraftViaPermalink").removeAttr("checked");
 
                 admin.preference.locale = preference.localeString;
@@ -114,8 +106,9 @@ admin.preference = {
                 $("#articleListDisplay").val(preference.articleListStyle);
                 // Editor Type
                 $("#editorType").val(preference.editorType);
-                // Feed output mode
+                // Feed output
                 $("#feedOutputMode").val(preference.feedOutputMode);
+                $("#feedOutputCnt").val(preference.feedOutputCnt);
                 // Commentable
                 preference.commentable ? $("#commentable").attr("checked", "checked") : $("commentable").removeAttr("checked");
                 
@@ -205,7 +198,6 @@ admin.preference = {
                 "articleListDisplayCount": $("#articleListDisplayCount").val(),
                 "articleListPaginationWindowSize": $("#articleListPaginationWindowSize").val(),
                 "skinDirName": $("#skinMain").data("skinDirName"),
-                "blogHost": $("#blogHost").val(),
                 "localeString": $("#localeString").val(),
                 "timeZoneId": $("#timeZoneId").val(),
                 "noticeBoard": $("#noticeBoard").val(),
@@ -220,6 +212,7 @@ admin.preference = {
                 "articleListStyle": $("#articleListDisplay").val(),
                 "editorType": $("#editorType").val(),
                 "feedOutputMode": $("#feedOutputMode").val(),
+                "feedOutputCnt": $("#feedOutputCnt").val(),
                 "commentable": $("#commentable").prop("checked")
             }
         };
@@ -264,6 +257,6 @@ admin.register["preference"] =  {
     "obj": admin.preference,
     "init": admin.preference.init,
     "refresh": function () {
-        $("#loadMsg").text("");
+        admin.clearTip();
     }
-}
+};

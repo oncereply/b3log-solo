@@ -78,12 +78,15 @@
             ${clearCacheLabel}
         </a>
         </#if>
+        <#if !isVisitor>
         <a href="${contextPath}/admin-index.do#main" title="${adminLabel}">
             ${adminLabel}
         </a>
+        </#if>
         <a href="${logoutURL}" title="${logoutLabel}">${logoutLabel}</a>
         <#else>
         <a href="${loginURL}" title="${loginLabel}">${loginLabel}</a>
+        <a href="/register" title="${registerLabel}">${registerLabel}</a>
         </#if>
         <#if isMobileRequest>
         <a href="javascript:void(0)" onclick="Util.switchMobile('mobile');" title="${mobileLabel}">${mobileLabel}</a>

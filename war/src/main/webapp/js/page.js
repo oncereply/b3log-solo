@@ -18,7 +18,7 @@
  *
  * @author <a href="mailto:LLY219@gmail.com">Liyuan Li</a>
  * @author <a href="mailto:DL88250@gmail.com">Liang Ding</a>
- * @version 1.0.3.2, Dec 26, 2012
+ * @version 1.0.3.3, Feb 20, 2013
  */
 var Page = function (tips) {
     this.currentCommentId = "";
@@ -352,14 +352,15 @@ $.extend(Page.prototype, {
             } 
         
             // load js
-            document.write("<script src=\"" + latkeConfig.staticServePath + "/js/lib/google-code-prettify/prettify.js\"><\/script>");
-            
-            // load function
-            $(document).ready(function () {
-                prettyPrint();
+            $.ajax({
+                url: latkeConfig.staticServePath + "/js/lib/google-code-prettify/prettify.js",
+                dataType: "script",
+                cache: true,
+                success: function() {
+                    prettyPrint();
+                }
             });
         }
-        
     },
     
     /*
@@ -401,7 +402,7 @@ $.extend(Page.prototype, {
         // cookie
         var $top = $("#top #admin");
         if ($top.length === 1) {
-            if ($top.find("a").length > 2) {
+            if ($top.find("a").length > 3) {
                 Cookie.createCookie("commentName", $top.find("span").text(), 365); 
                 Cookie.createCookie("commentURL", window.location.host, 365);
             }

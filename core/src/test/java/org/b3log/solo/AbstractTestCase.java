@@ -19,11 +19,14 @@ import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestC
 import com.google.appengine.tools.development.testing.LocalServiceTestHelper;
 import java.util.Locale;
 import org.b3log.latke.Latkes;
+import org.b3log.latke.service.LangPropsService;
+import org.b3log.latke.service.LangPropsServiceImpl;
 import org.b3log.solo.repository.ArchiveDateArticleRepository;
 import org.b3log.solo.repository.ArchiveDateRepository;
 import org.b3log.solo.repository.ArticleRepository;
 import org.b3log.solo.repository.CommentRepository;
 import org.b3log.solo.repository.LinkRepository;
+import org.b3log.solo.repository.OptionRepository;
 import org.b3log.solo.repository.PageRepository;
 import org.b3log.solo.repository.PluginRepository;
 import org.b3log.solo.repository.PreferenceRepository;
@@ -36,6 +39,7 @@ import org.b3log.solo.repository.impl.ArchiveDateRepositoryImpl;
 import org.b3log.solo.repository.impl.ArticleRepositoryImpl;
 import org.b3log.solo.repository.impl.CommentRepositoryImpl;
 import org.b3log.solo.repository.impl.LinkRepositoryImpl;
+import org.b3log.solo.repository.impl.OptionRepositoryImpl;
 import org.b3log.solo.repository.impl.PageRepositoryImpl;
 import org.b3log.solo.repository.impl.PluginRepositoryImpl;
 import org.b3log.solo.repository.impl.PreferenceRepositoryImpl;
@@ -50,8 +54,8 @@ import org.testng.annotations.BeforeClass;
 /**
  * Abstract test case.
  * 
- * @author <a href="mailto:DL88250@gmail.com">Liang Ding</a>
- * @version 1.0.0.5, Feb 8, 2013
+ * @author <a href="http://88250.b3log.org">Liang Ding</a>
+ * @version 1.0.0.7, Jul 8, 2013
  * @see #beforeClass() 
  * @see #afterClass() 
  */
@@ -62,118 +66,186 @@ public abstract class AbstractTestCase {
      */
     private final LocalServiceTestHelper localServiceTestHelper =
             new LocalServiceTestHelper(new LocalDatastoreServiceTestConfig());
+
     /**
      * User repository.
      */
     private UserRepository userRepository;
+
     /**
      * Link repository.
      */
     private LinkRepository linkRepository;
+
     /**
      * Article repository.
      */
     private ArticleRepository articleRepository;
+
     /**
      * Tag repository.
      */
     private TagRepository tagRepository;
+
     /**
      * Tag-Article repository.
      */
     private TagArticleRepository tagArticleRepository;
+
     /**
      * Page repository.
      */
     private PageRepository pageRepository;
+
     /**
      * Comment repository.
      */
     private CommentRepository commentRepository;
+
     /**
      * Archive date repository.
      */
     private ArchiveDateRepository archiveDateRepository;
+
     /**
      * Archive date article repository.
      */
     private ArchiveDateArticleRepository archiveDateArticleRepository;
+
     /**
      * Plugin repository.
      */
     private PluginRepository pluginRepository;
+
     /**
      * Preference repository.
      */
     private PreferenceRepository preferenceRepository;
+
     /**
      * Statistic repository.
      */
     private StatisticRepository statisticRepository;
+
+    /**
+     * Option repository.
+     */
+    private OptionRepository optionRepository;
+
+    /**
+     * Language service.
+     */
+    private LangPropsService langPropsService;
+    
+    /**
+     * Plugin management service.
+     */
+    private PluginMgmtService pluginMgmtService;
+    
     /**
      * Initialization service.
      */
     private InitService initService;
+
     /**
      * User management service.
      */
     private UserMgmtService userMgmtService;
+
     /**
      * User query service.
      */
     private UserQueryService userQueryService;
+
     /**
      * Article management service.
      */
     private ArticleMgmtService articleMgmtService;
+
     /**
      * Article query service.
      */
     private ArticleQueryService articleQueryService;
+
     /**
      * Page management service.
      */
     private PageMgmtService pageMgmtService;
+
     /**
      * Page query service.
      */
     private PageQueryService pageQueryService;
+
     /**
      * Link management service.
      */
     private LinkMgmtService linkMgmtService;
+
     /**
      * Link query service.
      */
     private LinkQueryService linkQueryService;
+
     /**
      * Preference management service.
      */
     private PreferenceMgmtService preferenceMgmtService;
+
     /**
      * Preference query service.
      */
     private PreferenceQueryService preferenceQueryService;
+
     /**
      * Tag query service.
      */
     private TagQueryService tagQueryService;
+
     /**
      * Tag management service.
      */
     private TagMgmtService tagMgmtService;
+
     /**
      * Comment query service.
      */
     private CommentQueryService commentQueryService;
+
     /**
      * Comment management service.
      */
     private CommentMgmtService commentMgmtService;
+
     /**
      * Archive date query service.
      */
     private ArchiveDateQueryService archiveDateQueryService;
+
+    /**
+     * Option management service.
+     */
+    private OptionMgmtService optionMgmtService;
+
+    /**
+     * Option query service.
+     */
+    private OptionQueryService optionQueryService;
+
+    /**
+     * Permalink query service.
+     */
+    private PermalinkQueryService permalinkQueryService;
+
+    /**
+     * Statistic management service.
+     */
+    private StatisticMgmtService statisticMgmtService;
+
+    /**
+     * Statistic query service.
+     */
+    private StatisticQueryService statisticQueryService;
 
     /**
      * Before class.
@@ -190,39 +262,142 @@ public abstract class AbstractTestCase {
 
         Latkes.initRuntimeEnv();
         Latkes.setLocale(Locale.SIMPLIFIED_CHINESE);
-
+        
         // Repositories
-        userRepository = UserRepositoryImpl.getInstance();
-        linkRepository = LinkRepositoryImpl.getInstance();
-        articleRepository = ArticleRepositoryImpl.getInstance();
-        tagRepository = TagRepositoryImpl.getInstance();
-        tagArticleRepository = TagArticleRepositoryImpl.getInstance();
-        pageRepository = PageRepositoryImpl.getInstance();
-        commentRepository = CommentRepositoryImpl.getInstance();
-        archiveDateRepository = ArchiveDateRepositoryImpl.getInstance();
-        archiveDateArticleRepository =
-                ArchiveDateArticleRepositoryImpl.getInstance();
-        pluginRepository = PluginRepositoryImpl.getInstance();
-        preferenceRepository = PreferenceRepositoryImpl.getInstance();
-        statisticRepository = StatisticRepositoryImpl.getInstance();
+        userRepository = new UserRepositoryImpl();
+        linkRepository = new LinkRepositoryImpl();
+        articleRepository = new ArticleRepositoryImpl();
+        tagArticleRepository = new TagArticleRepositoryImpl();
+        tagRepository = new TagRepositoryImpl();
+        ((TagRepositoryImpl)tagRepository).setTagArticleRepository(tagArticleRepository);
+        pageRepository = new PageRepositoryImpl();
+        commentRepository = new CommentRepositoryImpl();
+        ((CommentRepositoryImpl)commentRepository).setArticleRepository(articleRepository);
+        archiveDateRepository = new ArchiveDateRepositoryImpl();
+        archiveDateArticleRepository = new ArchiveDateArticleRepositoryImpl();
+        pluginRepository = new PluginRepositoryImpl();
+        preferenceRepository = new PreferenceRepositoryImpl();
+        statisticRepository = new StatisticRepositoryImpl();
+        optionRepository = new OptionRepositoryImpl();
 
         // Services
-        initService = InitService.getInstance();
-        userMgmtService = UserMgmtService.getInstance();
-        userQueryService = UserQueryService.getInstance();
-        articleMgmtService = ArticleMgmtService.getInstance();
-        articleQueryService = ArticleQueryService.getInstance();
-        pageMgmtService = PageMgmtService.getInstance();
-        pageQueryService = PageQueryService.getInstance();
-        linkMgmtService = LinkMgmtService.getInstance();
-        linkQueryService = LinkQueryService.getInstance();
-        preferenceMgmtService = PreferenceMgmtService.getInstance();
-        preferenceQueryService = PreferenceQueryService.getInstance();
-        tagQueryService = TagQueryService.getInstance();
-        tagMgmtService = TagMgmtService.getInstance();
-        commentQueryService = CommentQueryService.getInstance();
-        commentMgmtService = CommentMgmtService.getInstance();
-        archiveDateQueryService = ArchiveDateQueryService.getInstance();
+        langPropsService = new LangPropsServiceImpl();
+        
+        pluginMgmtService = new PluginMgmtService();
+        pluginMgmtService.setPluginRepository(pluginRepository);
+        pluginMgmtService.setLangPropsService(langPropsService);
+        
+        preferenceQueryService = new PreferenceQueryService();
+        preferenceQueryService.setPreferenceRepository(preferenceRepository);
+
+        initService = new InitService();
+        initService.setArchiveDateArticleRepository(archiveDateArticleRepository);
+        initService.setArchiveDateRepository(archiveDateRepository);
+        initService.setUserRepository(userRepository);
+        initService.setArticleRepository(articleRepository);
+        initService.setPreferenceRepository(preferenceRepository);
+        initService.setStatisticRepository(statisticRepository);
+        initService.setTagArticleRepository(tagArticleRepository);
+        initService.setTagRepository(tagRepository);
+        initService.setCommentRepository(commentRepository);
+        initService.setLangPropsService(langPropsService);
+
+        userMgmtService = new UserMgmtService();
+        userMgmtService.setUserRepository(userRepository);
+        userMgmtService.setLangPropsService(langPropsService);
+
+        userQueryService = new UserQueryService();
+        userQueryService.setUserMgmtService(userMgmtService);
+        userQueryService.setUserRepository(userRepository);
+
+        permalinkQueryService = new PermalinkQueryService();
+        permalinkQueryService.setArticleRepository(articleRepository);
+        permalinkQueryService.setPageRepository(pageRepository);
+
+        statisticMgmtService = new StatisticMgmtService();
+        statisticMgmtService.setStatisticRepository(statisticRepository);
+        statisticMgmtService.setLangPropsService(langPropsService);
+
+        statisticQueryService = new StatisticQueryService();
+        statisticQueryService.setStatisticRepository(statisticRepository);
+
+        tagQueryService = new TagQueryService();
+        tagQueryService.setTagRepository(tagRepository);
+
+        tagMgmtService = new TagMgmtService();
+        tagMgmtService.setTagQueryService(tagQueryService);
+        tagMgmtService.setTagRepository(tagRepository);
+
+        articleQueryService = new ArticleQueryService();
+        articleQueryService.setArchiveDateArticleRepository(archiveDateArticleRepository);
+        articleQueryService.setArticleRepository(articleRepository);
+        articleQueryService.setUserRepository(userRepository);
+        articleQueryService.setPreferenceQueryService(preferenceQueryService);
+        articleQueryService.setStatisticQueryService(statisticQueryService);
+        articleQueryService.setTagArticleRepository(tagArticleRepository);
+        articleQueryService.setTagRepository(tagRepository);
+
+        articleMgmtService = new ArticleMgmtService();
+        articleMgmtService.setArchiveDateArticleRepository(archiveDateArticleRepository);
+        articleMgmtService.setArchiveDateRepository(archiveDateRepository);
+        articleMgmtService.setArticleRepository(articleRepository);
+        articleMgmtService.setPermalinkQueryService(permalinkQueryService);
+        articleMgmtService.setArticleQueryService(articleQueryService);
+        articleMgmtService.setUserRepository(userRepository);
+        articleMgmtService.setArticleQueryService(articleQueryService);
+        articleMgmtService.setPreferenceQueryService(preferenceQueryService);
+        articleMgmtService.setStatisticMgmtService(statisticMgmtService);
+        articleMgmtService.setStatisticQueryService(statisticQueryService);
+        articleMgmtService.setTagArticleRepository(tagArticleRepository);
+        articleMgmtService.setTagRepository(tagRepository);
+        articleMgmtService.setTagMgmtService(tagMgmtService);
+        articleMgmtService.setCommentRepository(commentRepository);
+        articleMgmtService.setLangPropsService(langPropsService);
+
+        pageMgmtService = new PageMgmtService();
+        pageMgmtService.setPermalinkQueryService(permalinkQueryService);
+        pageMgmtService.setPageRepository(pageRepository);
+        pageMgmtService.setPreferenceQueryService(preferenceQueryService);
+        pageMgmtService.setStatisticQueryService(statisticQueryService);
+        pageMgmtService.setStatisticMgmtService(statisticMgmtService);
+        pageMgmtService.setCommentRepository(commentRepository);
+        pageMgmtService.setLangPropsService(langPropsService);
+
+        pageQueryService = new PageQueryService();
+        pageQueryService.setPageRepository(pageRepository);
+
+        linkMgmtService = new LinkMgmtService();
+        linkMgmtService.setLinkRepository(linkRepository);
+
+        linkQueryService = new LinkQueryService();
+        linkQueryService.setLinkRepository(linkRepository);
+
+        preferenceMgmtService = new PreferenceMgmtService();
+        preferenceMgmtService.setPreferenceRepository(preferenceRepository);
+        preferenceMgmtService.setLangPropsService(langPropsService);
+
+        commentQueryService = new CommentQueryService();
+        commentQueryService.setArticleRepository(articleRepository);
+        commentQueryService.setPageRepository(pageRepository);
+        commentQueryService.setCommentRepository(commentRepository);
+
+        commentMgmtService = new CommentMgmtService();
+        commentMgmtService.setArticleRepository(articleRepository);
+        commentMgmtService.setArticleMgmtService(articleMgmtService);
+        commentMgmtService.setPageRepository(pageRepository);
+        commentMgmtService.setPreferenceQueryService(preferenceQueryService);
+        commentMgmtService.setStatisticMgmtService(statisticMgmtService);
+        commentMgmtService.setCommentRepository(commentRepository);
+        commentMgmtService.setLangPropsService(langPropsService);
+
+        archiveDateQueryService = new ArchiveDateQueryService();
+        archiveDateQueryService.setArchiveDateRepository(archiveDateRepository);
+
+        optionMgmtService = new OptionMgmtService();
+        optionMgmtService.setOptionRepository(optionRepository);
+
+        optionQueryService = new OptionQueryService();
+        optionQueryService.setOptionRepository(optionRepository);
     }
 
     /**
@@ -235,7 +410,7 @@ public abstract class AbstractTestCase {
      */
     @AfterClass
     public void afterClass() {
-        localServiceTestHelper.tearDown();
+        // XXX: NPE, localServiceTestHelper.tearDown();
 
         Latkes.shutdown();
     }
@@ -346,6 +521,15 @@ public abstract class AbstractTestCase {
      */
     public StatisticRepository getStatisticRepository() {
         return statisticRepository;
+    }
+
+    /**
+     * Gets option repository.
+     * 
+     * @return option repository
+     */
+    public OptionRepository getOptionRepository() {
+        return optionRepository;
     }
 
     /**
@@ -490,5 +674,23 @@ public abstract class AbstractTestCase {
      */
     public ArchiveDateQueryService getArchiveDateQueryService() {
         return archiveDateQueryService;
+    }
+
+    /**
+     * Gets option management service.
+     * 
+     * @return option management service
+     */
+    public OptionMgmtService getOptionMgmtService() {
+        return optionMgmtService;
+    }
+
+    /**
+     * Gets option query service.
+     * 
+     * @return option query service
+     */
+    public OptionQueryService getOptionQueryService() {
+        return optionQueryService;
     }
 }

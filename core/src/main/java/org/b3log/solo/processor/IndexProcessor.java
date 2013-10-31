@@ -21,14 +21,14 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.lang.StringUtils;
 import org.b3log.latke.Keys;
-import org.b3log.latke.Latkes;
 import org.b3log.latke.cache.PageCaches;
+import org.b3log.latke.logging.Level;
+import org.b3log.latke.logging.Logger;
 import org.b3log.latke.model.Pagination;
 import org.b3log.latke.service.LangPropsService;
 import org.b3log.latke.service.ServiceException;
@@ -54,12 +54,13 @@ import org.json.JSONObject;
 /**
  * Index processor.
  *
- * @author <a href="mailto:DL88250@gmail.com">Liang Ding</a>
- * @version 1.1.1.0, Oct 11, 2012
+ * @author <a href="http://88250.b3log.org">Liang Ding</a>
+ * @author <a href="mailto:385321165@qq.com">DASHU</a>
+ * @version 1.1.1.3, Jul 11, 2013
  * @since 0.3.1
  */
 @RequestProcessor
-public final class IndexProcessor {
+public class IndexProcessor {
 
     /**
      * Logger.
@@ -69,17 +70,20 @@ public final class IndexProcessor {
     /**
      * Filler.
      */
-    private Filler filler = Filler.getInstance();
+    @Inject
+    private Filler filler;
 
     /**
      * Preference query service.
      */
-    private PreferenceQueryService preferenceQueryService = PreferenceQueryService.getInstance();
+    @Inject
+    private PreferenceQueryService preferenceQueryService;
 
     /**
      * Language service.
      */
-    private LangPropsService langPropsService = LangPropsService.getInstance();
+    @Inject
+    private LangPropsService langPropsService;
 
     /**
      * Shows index with the specified context.
@@ -103,15 +107,13 @@ public final class IndexProcessor {
             final int currentPageNum = getCurrentPageNum(requestURI);
             final JSONObject preference = preferenceQueryService.getPreference();
 
-            Skins.fillSkinLangs(preference.optString(Preference.LOCALE_STRING), (String) request.getAttribute(Keys.TEMAPLTE_DIR_NAME),
-                dataModel);
-
-            final Map<String, String> langs = langPropsService.getAll(Latkes.getLocale());
+            Skins.fillLangs(preference.optString(Preference.LOCALE_STRING), (String) request.getAttribute(Keys.TEMAPLTE_DIR_NAME), dataModel);
 
             request.setAttribute(PageCaches.CACHED_OID, "No id");
             request.setAttribute(PageCaches.CACHED_TITLE,
-                langs.get(PageTypes.INDEX.getLangeLabel()) + "  [" + langs.get("pageNumLabel") + "=" + currentPageNum + "]");
-            request.setAttribute(PageCaches.CACHED_TYPE, langs.get(PageTypes.INDEX.getLangeLabel()));
+                langPropsService.get(PageTypes.INDEX.getLangeLabel()) + "  [" + langPropsService.get("pageNumLabel") + "=" + currentPageNum
+                + "]");
+            request.setAttribute(PageCaches.CACHED_TYPE, langPropsService.get(PageTypes.INDEX.getLangeLabel()));
             request.setAttribute(PageCaches.CACHED_LINK, requestURI);
 
             filler.fillIndexArticles(request, dataModel, currentPageNum, preference);
@@ -119,7 +121,7 @@ public final class IndexProcessor {
 
             filler.fillSide(request, dataModel, preference);
             filler.fillBlogHeader(request, dataModel, preference);
-            filler.fillBlogFooter(dataModel, preference);
+            filler.fillBlogFooter(request, dataModel, preference);
 
             dataModel.put(Pagination.PAGINATION_CURRENT_PAGE_NUM, currentPageNum);
             final String previousPageNum = Integer.toString(currentPageNum > 1 ? currentPageNum - 1 : 0);
@@ -135,12 +137,12 @@ public final class IndexProcessor {
 
             dataModel.put(Common.PATH, "");
         } catch (final ServiceException e) {
-            LOGGER.log(Level.SEVERE, e.getMessage(), e);
+            LOGGER.log(Level.ERROR, e.getMessage(), e);
 
             try {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
             } catch (final IOException ex) {
-                LOGGER.severe(ex.getMessage());
+                LOGGER.error(ex.getMessage());
             }
         }
     }
@@ -166,11 +168,10 @@ public final class IndexProcessor {
             dataModel.putAll(langs);
             final JSONObject preference = preferenceQueryService.getPreference();
 
-            filler.fillBlogFooter(dataModel, preference);
-            Keys.fillServer(dataModel);
+            filler.fillBlogFooter(request, dataModel, preference);
             Keys.fillRuntime(dataModel);
             filler.fillMinified(dataModel);
-            
+
             dataModel.put(Keys.PAGE_TYPE, PageTypes.KILL_BROWSER);
 
             request.setAttribute(PageCaches.CACHED_OID, "No id");
@@ -178,12 +179,49 @@ public final class IndexProcessor {
             request.setAttribute(PageCaches.CACHED_TYPE, langs.get(PageTypes.KILL_BROWSER.getLangeLabel()));
             request.setAttribute(PageCaches.CACHED_LINK, request.getRequestURI());
         } catch (final ServiceException e) {
-            LOGGER.log(Level.SEVERE, e.getMessage(), e);
+            LOGGER.log(Level.ERROR, e.getMessage(), e);
 
             try {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
             } catch (final IOException ex) {
-                LOGGER.severe(ex.getMessage());
+                LOGGER.error(ex.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Show register page.
+     *
+     * @param context the specified context
+     * @param request the specified HTTP servlet request
+     * @param response the specified HTTP servlet response
+     */
+    @RequestProcessing(value = "/register", method = HTTPRequestMethod.GET)
+    public void register(final HTTPRequestContext context, final HttpServletRequest request, final HttpServletResponse response) {
+        final AbstractFreeMarkerRenderer renderer = new ConsoleRenderer();
+
+        context.setRenderer(renderer);
+
+        renderer.setTemplateName("register.ftl");
+
+        final Map<String, Object> dataModel = renderer.getDataModel();
+
+        try {
+            final Map<String, String> langs = langPropsService.getAll(Locales.getLocale(request));
+
+            dataModel.putAll(langs);
+
+            final JSONObject preference = preferenceQueryService.getPreference();
+
+            filler.fillBlogFooter(request, dataModel, preference);
+            filler.fillMinified(dataModel);
+        } catch (final ServiceException e) {
+            LOGGER.log(Level.ERROR, e.getMessage(), e);
+
+            try {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            } catch (final IOException ex) {
+                LOGGER.error(ex.getMessage());
             }
         }
     }
@@ -204,9 +242,9 @@ public final class IndexProcessor {
     /**
      * Kill browser (kill-browser.ftl) HTTP response renderer.
      * 
-     * @author <a href="mailto:DL88250@gmail.com">Liang Ding</a>
+     * @author <a href="http://88250.b3log.org">Liang Ding</a>
      * @version 1.0.0.0, Sep 18, 2011
-     * @see 0.3.1
+     * @since 0.3.1
      */
     private static final class KillBrowserRenderer extends AbstractFreeMarkerRenderer {
 
@@ -243,7 +281,7 @@ public final class IndexProcessor {
                 try {
                     response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 } catch (final IOException ex) {
-                    LOGGER.log(Level.SEVERE, "Can not sned error 500!", ex);
+                    LOGGER.log(Level.ERROR, "Can not sned error 500!", ex);
                 }
             }
         }

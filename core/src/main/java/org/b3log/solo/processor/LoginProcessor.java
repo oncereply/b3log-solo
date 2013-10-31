@@ -16,50 +16,63 @@
 package org.b3log.solo.processor;
 
 
-import java.io.IOException;
-import java.util.Calendar;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.b3log.latke.Keys;
 import org.b3log.latke.Latkes;
+import org.b3log.latke.logging.Level;
+import org.b3log.latke.logging.Logger;
+import org.b3log.latke.mail.MailService;
+import org.b3log.latke.mail.MailServiceFactory;
+import org.b3log.latke.model.Role;
 import org.b3log.latke.model.User;
+import org.b3log.latke.repository.RepositoryException;
+import org.b3log.latke.repository.Transaction;
 import org.b3log.latke.service.LangPropsService;
+import org.b3log.latke.service.ServiceException;
 import org.b3log.latke.servlet.HTTPRequestContext;
 import org.b3log.latke.servlet.HTTPRequestMethod;
 import org.b3log.latke.servlet.annotation.RequestProcessing;
 import org.b3log.latke.servlet.annotation.RequestProcessor;
 import org.b3log.latke.servlet.renderer.JSONRenderer;
 import org.b3log.latke.servlet.renderer.freemarker.AbstractFreeMarkerRenderer;
+import org.b3log.latke.user.UserService;
+import org.b3log.latke.user.UserServiceFactory;
 import org.b3log.latke.util.MD5;
 import org.b3log.latke.util.Requests;
 import org.b3log.latke.util.Sessions;
 import org.b3log.latke.util.Strings;
 import org.b3log.solo.SoloServletListener;
 import org.b3log.solo.model.Common;
+import org.b3log.solo.model.Option;
 import org.b3log.solo.model.Preference;
 import org.b3log.solo.processor.renderer.ConsoleRenderer;
 import org.b3log.solo.processor.util.Filler;
-import org.b3log.solo.service.PreferenceQueryService;
-import org.b3log.solo.service.UserQueryService;
+import org.b3log.solo.repository.OptionRepository;
+import org.b3log.solo.service.*;
+import org.b3log.solo.util.Randoms;
+import org.json.JSONException;
 import org.json.JSONObject;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Calendar;
+import java.util.Map;
 
 
 /**
  * Login/logout processor.
- *
+ * <p/>
  * <p>Initializes administrator</p>.
  *
- * @author <a href="mailto:DL88250@gmail.com">Liang Ding</a>
+ * @author <a href="http://88250.b3log.org">Liang Ding</a>
  * @author <a href="mailto:LLY219@gmail.com">Liyuan Li</a>
- * @version 1.1.1.3, Jan 18, 2013
+ * @author <a href="mailto:dongxu.wang@acm.org">Dongxu Wang</a>
+ * @version 1.1.1.5, Jul 4, 2013
  * @since 0.3.1
  */
 @RequestProcessor
-public final class LoginProcessor {
+public class LoginProcessor {
 
     /**
      * Logger.
@@ -69,73 +82,99 @@ public final class LoginProcessor {
     /**
      * User query service.
      */
-    private static UserQueryService userQueryService = UserQueryService.getInstance();
+    @Inject
+    private UserQueryService userQueryService;
+
+    /**
+     * User service.
+     */
+    private UserService userService = UserServiceFactory.getUserService();
+
+    /**
+     * Mail service.
+     */
+    private MailService mailService = MailServiceFactory.getMailService();
+
+    /**
+     * User management service.
+     */
+    @Inject
+    private UserMgmtService userMgmtService;
 
     /**
      * Language service.
      */
-    private LangPropsService langPropsService = LangPropsService.getInstance();
+    @Inject
+    private LangPropsService langPropsService;
 
     /**
      * Filler.
      */
-    private Filler filler = Filler.getInstance();
+    @Inject
+    private Filler filler;
 
     /**
      * Preference query service.
      */
-    private PreferenceQueryService preferenceQueryService = PreferenceQueryService.getInstance();
+    @Inject
+    private PreferenceQueryService preferenceQueryService;
+
+    /**
+     * Option query service.
+     */
+    @Inject
+    private OptionQueryService optionQueryService;
+
+    /**
+     * Option management service.
+     */
+    @Inject
+    private OptionMgmtService optionMgmtService;
+
+    /**
+     * Option repository.
+     */
+    @Inject
+    private OptionRepository optionRepository;
 
     /**
      * Shows login page.
      *
      * @param context the specified context
-     * @throws Exception exception 
+     * @throws Exception exception
      */
-    @RequestProcessing(value = { "/login"}, method = HTTPRequestMethod.GET)
+    @RequestProcessing(value = "/login", method = HTTPRequestMethod.GET)
     public void showLogin(final HTTPRequestContext context) throws Exception {
         final HttpServletRequest request = context.getRequest();
 
         String destinationURL = request.getParameter(Common.GOTO);
 
         if (Strings.isEmptyOrNull(destinationURL)) {
-            destinationURL = "/";
+            destinationURL = Latkes.getServePath() + Common.ADMIN_INDEX_URI;
         }
 
-        final AbstractFreeMarkerRenderer renderer = new ConsoleRenderer();
+        final HttpServletResponse response = context.getResponse();
 
-        renderer.setTemplateName("login.ftl");
-        context.setRenderer(renderer);
+        userMgmtService.tryLogInWithCookie(request, response);
 
-        final Map<String, Object> dataModel = renderer.getDataModel();
-        final Map<String, String> langs = langPropsService.getAll(Latkes.getLocale());
-        final JSONObject preference = preferenceQueryService.getPreference();
+        if (null != userService.getCurrentUser(request)) { // User has already logged in
+            response.sendRedirect(destinationURL);
 
-        dataModel.putAll(langs);
-        dataModel.put(Common.GOTO, destinationURL);
-        dataModel.put(Common.YEAR, String.valueOf(Calendar.getInstance().get(Calendar.YEAR)));
-        dataModel.put(Common.VERSION, SoloServletListener.VERSION);
-        dataModel.put(Common.STATIC_RESOURCE_VERSION, Latkes.getStaticResourceVersion());
-        dataModel.put(Preference.BLOG_TITLE, preference.getString(Preference.BLOG_TITLE));
-        dataModel.put(Preference.BLOG_HOST, preference.getString(Preference.BLOG_HOST));
-
-        Keys.fillServer(dataModel);
-        Keys.fillRuntime(dataModel);
-        filler.fillMinified(dataModel);
+            return;
+        }
+        renderPage(context, "login.ftl", destinationURL, request);
     }
 
     /**
      * Logins.
-     *
-     * <p>
-     * Renders the response with a json object, for example,
+     * <p/>
+     * <p> Renders the response with a json object, for example,
      * <pre>
      * {
      *     "isLoggedIn": boolean,
      *     "msg": "" // optional, exists if isLoggedIn equals to false
      * }
-     * </pre>
-     * </p>
+     * </pre> </p>
      *
      * @param context the specified context
      */
@@ -169,7 +208,7 @@ public final class LoginProcessor {
             final JSONObject user = userQueryService.getUserByEmail(userEmail);
 
             if (null == user) {
-                LOGGER.log(Level.WARNING, "Not found user[email={0}]", userEmail);
+                LOGGER.log(Level.WARN, "Not found user[email={0}]", userEmail);
                 return;
             }
 
@@ -179,15 +218,21 @@ public final class LoginProcessor {
                 LOGGER.log(Level.INFO, "Logged in[email={0}]", userEmail);
 
                 jsonObject.put(Common.IS_LOGGED_IN, true);
-                jsonObject.put("to", Latkes.getServePath() + Common.ADMIN_INDEX_URI);
+
+                if (Role.VISITOR_ROLE.equals(user.optString(User.USER_ROLE))) {
+                    jsonObject.put("to", Latkes.getServePath());
+                } else {
+                    jsonObject.put("to", Latkes.getServePath() + Common.ADMIN_INDEX_URI);
+                }
+
                 jsonObject.remove(Keys.MSG);
 
                 return;
             }
 
-            LOGGER.log(Level.WARNING, "Wrong password[{0}]", userPwd);
+            LOGGER.log(Level.WARN, "Wrong password[{0}]", userPwd);
         } catch (final Exception e) {
-            LOGGER.log(Level.SEVERE, e.getMessage(), e);
+            LOGGER.log(Level.ERROR, e.getMessage(), e);
         }
     }
 
@@ -213,57 +258,225 @@ public final class LoginProcessor {
     }
 
     /**
-     * Tries to login with cookie.
+     * Shows forgotten password page.
      *
-     * @param request the specified request
-     * @param response the specified response
+     * @param context the specified context
+     * @throws Exception exception
      */
-    public static void tryLogInWithCookie(final HttpServletRequest request, final HttpServletResponse response) {
-        final Cookie[] cookies = request.getCookies();
+    @RequestProcessing(value = "/forgot", method = HTTPRequestMethod.GET)
+    public void showForgot(final HTTPRequestContext context) throws Exception {
+        final HttpServletRequest request = context.getRequest();
 
-        if (null == cookies || 0 == cookies.length) {
-            return;
+        String destinationURL = request.getParameter(Common.GOTO);
+
+        if (Strings.isEmptyOrNull(destinationURL)) {
+            destinationURL = Latkes.getServePath() + Common.ADMIN_INDEX_URI;
         }
+
+        renderPage(context, "reset-pwd.ftl", destinationURL, request);
+    }
+
+    /**
+     * reset forgotten password.
+     * <p/>
+     * <p> Renders the response with a json object, for example,
+     * <pre>
+     * {
+     *     "isLoggedIn": boolean,
+     *     "msg": "" // optional, exists if isLoggedIn equals to false
+     * }
+     * </pre> </p>
+     *
+     * @param context the specified context
+     */
+    @RequestProcessing(value = { "/forgot"}, method = HTTPRequestMethod.POST)
+    public void forgot(final HTTPRequestContext context) {
+        final HttpServletRequest request = context.getRequest();
+
+        final JSONRenderer renderer = new JSONRenderer();
+
+        context.setRenderer(renderer);
+        final JSONObject jsonObject = new JSONObject();
+
+        renderer.setJSONObject(jsonObject);
 
         try {
-            for (int i = 0; i < cookies.length; i++) {
-                final Cookie cookie = cookies[i];
+            jsonObject.put("succeed", false);
+            jsonObject.put(Keys.MSG, langPropsService.get("resetPwdSuccessMsg"));
 
-                if (!"b3log-latke".equals(cookie.getName())) {
-                    continue;
-                }
+            final JSONObject requestJSONObject = Requests.parseRequestJSONObject(request, context.getResponse());
+            final String userEmail = requestJSONObject.getString(User.USER_EMAIL);
 
-                final JSONObject cookieJSONObject = new JSONObject(cookie.getValue());
-
-                final String userEmail = cookieJSONObject.optString(User.USER_EMAIL);
-
-                if (Strings.isEmptyOrNull(userEmail)) {
-                    break;
-                }
-
-                final JSONObject user = userQueryService.getUserByEmail(userEmail.toLowerCase().trim());
-
-                if (null == user) {
-                    break;
-                }
-
-                final String userPassword = user.optString(User.USER_PASSWORD);
-                final String hashPassword = cookieJSONObject.optString(User.USER_PASSWORD);
-
-                if (userPassword.equals(hashPassword)) {
-                    Sessions.login(request, response, user);
-                    LOGGER.log(Level.INFO, "Logged in with cookie[email={0}]", userEmail);
-                }
+            if (Strings.isEmptyOrNull(userEmail)) {
+                LOGGER.log(Level.WARN, "Why user's email is empty");
+                return;
             }
+
+            LOGGER.log(Level.INFO, "Login[email={0}]", userEmail);
+
+            final JSONObject user = userQueryService.getUserByEmail(userEmail);
+
+            if (null == user) {
+                LOGGER.log(Level.WARN, "Not found user[email={0}]", userEmail);
+                jsonObject.put(Keys.MSG, langPropsService.get("userEmailNotFoundMsg"));
+                return;
+            }
+
+            sendResetUrl(userEmail, jsonObject);
         } catch (final Exception e) {
-            LOGGER.log(Level.WARNING, "Parses cookie failed, clears the cookie[name=b3log-latke]", e);
-
-            final Cookie cookie = new Cookie("b3log-latke", null);
-
-            cookie.setMaxAge(0);
-            cookie.setPath("/");
-
-            response.addCookie(cookie);
+            LOGGER.log(Level.ERROR, e.getMessage(), e);
         }
+    }
+
+    /**
+     * reset forgotten password.
+     * <p/>
+     * <p> Renders the response with a json object, for example,
+     * <pre>
+     * {
+     *     "isLoggedIn": boolean,
+     *     "msg": "" // optional, exists if isLoggedIn equals to false
+     * }
+     * </pre> </p>
+     *
+     * @param context the specified context
+     */
+    @RequestProcessing(value = { "/reset"}, method = HTTPRequestMethod.POST)
+    public void reset(final HTTPRequestContext context) {
+        final HttpServletRequest request = context.getRequest();
+        final JSONRenderer renderer = new JSONRenderer();
+
+        context.setRenderer(renderer);
+        final JSONObject jsonObject = new JSONObject();
+
+        renderer.setJSONObject(jsonObject);
+
+        try {
+            final JSONObject requestJSONObject;
+
+            requestJSONObject = Requests.parseRequestJSONObject(request, context.getResponse());
+            final String userEmail = requestJSONObject.getString(User.USER_EMAIL);
+            final String newPwd = requestJSONObject.getString("newPwd");
+            final JSONObject user = userQueryService.getUserByEmail(userEmail);
+
+            user.put(User.USER_PASSWORD, newPwd);
+            userMgmtService.updateUser(user);
+            LOGGER.log(Level.DEBUG, "[{0}]'s password updated successfully.", new Object[] {userEmail});
+
+            jsonObject.put("succeed", true);
+            jsonObject.put("to", Latkes.getServePath() + "/login?from=reset");
+            jsonObject.put(Keys.MSG, langPropsService.get("resetPwdSuccessMsg"));
+        } catch (final Exception e) {
+            LOGGER.log(Level.ERROR, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Whether user is going to update an expired password out of 24 hours.
+     *
+     * @return whether the password has been expired TODO implement it
+     */
+    private boolean isPwdExpired() {
+        return false;
+    }
+
+    /**
+     * Send the password resetting URL with a random token.
+     *
+     * @param userEmail  the given email
+     * @param jsonObject return code and message object
+     * @throws JSONException       the JSONException
+     * @throws ServiceException    the ServiceException
+     * @throws IOException         the IOException
+     * @throws RepositoryException the RepositoryException
+     */
+    private void sendResetUrl(final String userEmail, final JSONObject jsonObject) throws JSONException,
+            ServiceException, IOException, RepositoryException {
+        final JSONObject preference = preferenceQueryService.getPreference();
+        final String token = new Randoms().nextStringWithMD5();
+        final String blogTitle = preference.getString(Preference.BLOG_TITLE);
+        final String adminEmail = preference.getString(Preference.ADMIN_EMAIL);
+        final String mailSubject = langPropsService.get("resetPwdMailSubject");
+        final String mailBody = langPropsService.get("resetPwdMailBody") + " " + Latkes.getServePath() + "/forgot?token=" + token
+            + "&login=" + userEmail;
+        final MailService.Message message = new MailService.Message();
+
+        final JSONObject option = new JSONObject();
+
+        option.put(Keys.OBJECT_ID, token);
+        option.put(Option.OPTION_CATEGORY, "passwordReset");
+        option.put(Option.OPTION_VALUE, System.currentTimeMillis());
+
+        final Transaction transaction = optionRepository.beginTransaction();
+
+        optionRepository.add(option);
+        transaction.commit();
+
+        message.setFrom(adminEmail);
+        message.addRecipient(userEmail);
+        message.setSubject(mailSubject);
+        message.setHtmlBody(mailBody);
+
+        mailService.send(message);
+
+        jsonObject.put("succeed", true);
+        jsonObject.put("to", Latkes.getServePath() + "/login?from=forgot");
+        jsonObject.put(Keys.MSG, langPropsService.get("resetPwdSuccessSend"));
+
+        LOGGER.log(Level.DEBUG, "Sending a mail[mailSubject={0}, mailBody=[{1}] to [{2}]", new Object[] {mailSubject, mailBody, userEmail});
+    }
+
+    /**
+     * Render a page template with the destination URL.
+     *
+     * @param context        the context
+     * @param pageTemplate   the page template
+     * @param destinationURL the destination URL
+     * @param request        for reset password page
+     * @throws JSONException    the JSONException
+     * @throws ServiceException the ServiceException
+     */
+    private void renderPage(final HTTPRequestContext context, final String pageTemplate, final String destinationURL, final HttpServletRequest request) throws JSONException,
+            ServiceException {
+        final AbstractFreeMarkerRenderer renderer = new ConsoleRenderer();
+
+        renderer.setTemplateName(pageTemplate);
+        context.setRenderer(renderer);
+
+        final Map<String, Object> dataModel = renderer.getDataModel();
+        final Map<String, String> langs = langPropsService.getAll(Latkes.getLocale());
+        final JSONObject preference = preferenceQueryService.getPreference();
+
+        dataModel.putAll(langs);
+        dataModel.put(Common.GOTO, destinationURL);
+        dataModel.put(Common.YEAR, String.valueOf(Calendar.getInstance().get(Calendar.YEAR)));
+        dataModel.put(Common.VERSION, SoloServletListener.VERSION);
+        dataModel.put(Common.STATIC_RESOURCE_VERSION, Latkes.getStaticResourceVersion());
+        dataModel.put(Preference.BLOG_TITLE, preference.getString(Preference.BLOG_TITLE));
+
+        final String token = request.getParameter("token");
+        final String email = request.getParameter("login");
+        final JSONObject tokenObj = optionQueryService.getOptionById(token);
+
+        if (tokenObj == null) {
+            dataModel.put("inputType", "email");
+        } else {
+            // TODO verify the expired time in the tokenObj
+            dataModel.put("inputType", "password");
+            dataModel.put("userEmailHidden", email);
+        }
+
+        final String from = request.getParameter("from");
+
+        if ("forgot".equals(from)) {
+            dataModel.put("resetMsg", langPropsService.get("resetPwdSuccessSend"));
+        } else if ("reset".equals(from)) {
+            dataModel.put("resetMsg", langPropsService.get("resetPwdSuccessMsg"));
+        } else {
+            dataModel.put("resetMsg", "");
+        }
+
+        Keys.fillRuntime(dataModel);
+        filler.fillMinified(dataModel);
     }
 }

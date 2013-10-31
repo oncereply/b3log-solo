@@ -14,7 +14,6 @@
         "miniPostfix": "${miniPostfix}",
         "reportIssueLabel": "please report this issue on https://github.com/b3log/b3log-solo/issues/new",
         "noDataLabel": "${noDataLabel}",
-        "resetBlogHostLabel": "${resetBlogHostLabel}",
         "linkDescriptionLabel": "${linkDescriptionLabel}",
         "addressInvalidLabel": "${addressInvalidLabel}",
         "selectLabel": "${selectLabel}",
@@ -54,6 +53,7 @@
         "versionLabel": "${versionLabel}",
         "commentNameLabel": "${commentNameLabel}",
         "commentEmailLabel": "${commentEmailLabel}",
+        "roleLabel": "${roleLabel}", 
         "administratorLabel": "${administratorLabel}",
         "duplicatedEmailLabel": "${duplicatedEmailLabel}",
         "mailInvalidLabel": "${mailInvalidLabel}",
@@ -110,7 +110,12 @@
         "randomArticlesDisplayCntLabel": "${randomArticlesDisplayCntLabel}",
         "relevantArticlesDisplayCntLabel": "${relevantArticlesDisplayCntLabel}",
         "externalRelevantArticlesDisplayCntLabel": "${externalRelevantArticlesDisplayCntLabel}",
-        "nameTooLongLabel": "${nameTooLongLabel}"
+        "nameTooLongLabel": "${nameTooLongLabel}",
+        "navLabel": "${navLabel}",
+        "userLabel": "${userLabel}",
+        "changeRoleLabel": "${changeRoleLabel}",
+        "visitorUserLabel": "${visitorUserLabel}",
+        "autoSaveLabel": "${autoSaveLabel}"
     };    
     
     admin.init();

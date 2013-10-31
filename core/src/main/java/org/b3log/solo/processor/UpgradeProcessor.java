@@ -19,14 +19,14 @@ package org.b3log.solo.processor;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.Statement;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import javax.inject.Inject;
 import org.b3log.latke.Keys;
 import org.b3log.latke.Latkes;
 import org.b3log.latke.RuntimeEnv;
+import org.b3log.latke.logging.Level;
+import org.b3log.latke.logging.Logger;
 import org.b3log.latke.mail.MailService;
 import org.b3log.latke.mail.MailServiceFactory;
-import org.b3log.latke.model.Plugin;
 import org.b3log.latke.model.User;
 import org.b3log.latke.repository.*;
 import org.b3log.latke.repository.jdbc.util.Connections;
@@ -37,12 +37,10 @@ import org.b3log.latke.servlet.HTTPRequestMethod;
 import org.b3log.latke.servlet.annotation.RequestProcessing;
 import org.b3log.latke.servlet.annotation.RequestProcessor;
 import org.b3log.latke.servlet.renderer.TextHTMLRenderer;
-import org.b3log.latke.util.MD5;
 import org.b3log.latke.util.Strings;
 import org.b3log.solo.SoloServletListener;
 import org.b3log.solo.model.*;
 import org.b3log.solo.repository.*;
-import org.b3log.solo.repository.impl.*;
 import org.b3log.solo.service.PreferenceQueryService;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -52,13 +50,13 @@ import org.json.JSONObject;
 /**
  * Upgrader.
  *
- * @author <a href="mailto:DL88250@gmail.com">Liang Ding</a>
- * @author <a href="mailto:dongxv.vang@gmail.com">Dongxu Wang</a>
- * @version 1.1.1.7, Feb 19, 2013
+ * @author <a href="http://88250.b3log.org">Liang Ding</a>
+ * @author <a href="mailto:dongxu.wang@acm.org">Dongxu Wang</a>
+ * @version 1.1.1.10, Aug 20, 2013
  * @since 0.3.1
  */
 @RequestProcessor
-public final class UpgradeProcessor {
+public class UpgradeProcessor {
 
     /**
      * Logger.
@@ -68,22 +66,20 @@ public final class UpgradeProcessor {
     /**
      * Article repository.
      */
-    private ArticleRepository articleRepository = ArticleRepositoryImpl.getInstance();
-
-    /**
-     * Page repository.
-     */
-    private PageRepository pageRepository = PageRepositoryImpl.getInstance();
+    @Inject
+    private ArticleRepository articleRepository;
 
     /**
      * User repository.
      */
-    private UserRepository userRepository = UserRepositoryImpl.getInstance();
+    @Inject
+    private UserRepository userRepository;
 
     /**
      * Preference repository.
      */
-    private PreferenceRepository preferenceRepository = PreferenceRepositoryImpl.getInstance();
+    @Inject
+    private PreferenceRepository preferenceRepository;
 
     /**
      * Step for article updating.
@@ -93,7 +89,8 @@ public final class UpgradeProcessor {
     /**
      * Preference Query Service.
      */
-    private PreferenceQueryService preferenceQueryService = PreferenceQueryService.getInstance();
+    @Inject
+    private PreferenceQueryService preferenceQueryService;
 
     /**
      * Mail Service.
@@ -108,7 +105,18 @@ public final class UpgradeProcessor {
     /**
      * Language service.
      */
-    private static LangPropsService langPropsService = LangPropsService.getInstance();
+    @Inject
+    private LangPropsService langPropsService;
+
+    /**
+     * Old version.
+     */
+    private static final String FROM_VER = "0.6.0";
+
+    /**
+     * New version.
+     */
+    private static final String TO_VER = SoloServletListener.VERSION;
 
     /**
      * Checks upgrade.
@@ -133,24 +141,27 @@ public final class UpgradeProcessor {
 
             renderer.setContent("Upgrade successfully ;-)");
 
-            final String version = preference.getString(Preference.VERSION);
+            final String currentVer = preference.getString(Preference.VERSION);
 
-            if (SoloServletListener.VERSION.equals(version)) {
+            if (SoloServletListener.VERSION.equals(currentVer)) {
                 return;
             }
 
-            if ("0.5.5".equals(version)) {
-                v055ToV056();
-            } else {
-                LOGGER.log(Level.WARNING, "Attempt to skip more than one version to upgrade. Expected: 0.5.0; Actually: {0}", version);
-                if (!sent) {
-                    notifyUserByEmail();
-                    sent = true;
-                }
-                renderer.setContent(langPropsService.get("skipVersionAlert"));
+            if (FROM_VER.equals(currentVer)) {
+                upgrade();
+
+                return;
             }
+
+            LOGGER.log(Level.WARN, "Attempt to skip more than one version to upgrade. Expected: {0}; Actually: {1}", FROM_VER, currentVer);
+            if (!sent) {
+                notifyUserByEmail();
+                sent = true;
+            }
+
+            renderer.setContent(langPropsService.get("skipVersionAlert"));
         } catch (final Exception e) {
-            LOGGER.log(Level.SEVERE, e.getMessage(), e);
+            LOGGER.log(Level.ERROR, e.getMessage(), e);
             renderer.setContent(
                 "Upgrade failed [" + e.getMessage() + "], please contact the B3log Solo developers or reports this "
                 + "issue directly (<a href='https://github.com/b3log/b3log-solo/issues/new'>"
@@ -159,27 +170,18 @@ public final class UpgradeProcessor {
     }
 
     /**
-     * Upgrades from version 055 to version 056.
+     * Upgrades.
      *
      * @throws Exception upgrade fails
      */
-    private void v055ToV056() throws Exception {
-        LOGGER.info("Upgrading from version 055 to version 056....");
+    private void upgrade() throws Exception {
+        LOGGER.log(Level.INFO, "Upgrading from version [{0}] to version [{1}]....", FROM_VER, TO_VER);
 
         articleRepository.setCacheEnabled(false);
-
         Transaction transaction = null;
 
         try {
             transaction = userRepository.beginTransaction();
-
-            // Upgrades preference model
-            final JSONObject preference = preferenceRepository.get(Preference.PREFERENCE);
-
-            preference.put(Preference.VERSION, "0.5.6");
-            preferenceRepository.update(Preference.PREFERENCE, preference);
-
-            upgradeUsers();
 
             final RuntimeEnv runtimeEnv = Latkes.getRuntimeEnv();
 
@@ -188,28 +190,34 @@ public final class UpgradeProcessor {
                 final Statement statement = connection.createStatement();
 
                 final String tablePrefix = Latkes.getLocalProperty("jdbc.tablePrefix");
-                final String tableName = Strings.isEmptyOrNull(tablePrefix) ? Plugin.PLUGIN : tablePrefix + '_' + Plugin.PLUGIN;
+                final String tableName = Strings.isEmptyOrNull(tablePrefix) ? "preference" : tablePrefix + "_preference";
 
-                statement.execute("ALTER TABLE " + tableName + " ADD setting text");
+                statement.execute("ALTER TABLE " + tableName + " DROP COLUMN blogHost");
 
                 connection.commit();
             }
 
+            // Upgrades preference model
+            final JSONObject preference = preferenceRepository.get(Preference.PREFERENCE);
+
+            preference.put(Preference.VERSION, TO_VER);
+            preferenceRepository.update(Preference.PREFERENCE, preference);
+
             transaction.commit();
 
-            LOGGER.log(Level.FINEST, "Updated preference");
+            LOGGER.log(Level.TRACE, "Updated preference");
         } catch (final Exception e) {
-            if (transaction.isActive()) {
+            if (null != transaction && transaction.isActive()) {
                 transaction.rollback();
             }
 
-            LOGGER.log(Level.SEVERE, "Upgrade failed.", e);
-            throw new Exception("Upgrade failed from version 055 to version 056");
+            LOGGER.log(Level.ERROR, "Upgrade failed!", e);
+            throw new Exception("Upgrade failed from version [" + FROM_VER + "] to version [" + TO_VER + ']');
         } finally {
             articleRepository.setCacheEnabled(true);
         }
 
-        LOGGER.info("Upgraded from version 055 to version 056 successfully :-)");
+        LOGGER.log(Level.INFO, "Upgraded from version [{0}] to version [{1}] successfully :-)", FROM_VER, TO_VER);
     }
 
     /**
@@ -226,9 +234,8 @@ public final class UpgradeProcessor {
 
         for (int i = 0; i < users.length(); i++) {
             final JSONObject user = users.getJSONObject(i);
-            final String oldPwd = user.optString(User.USER_PASSWORD);
 
-            user.put(User.USER_PASSWORD, MD5.hash(oldPwd));
+            user.put(User.USER_URL, Latkes.getServePath());
 
             userRepository.update(user.optString(Keys.OBJECT_ID), user);
 
@@ -247,7 +254,7 @@ public final class UpgradeProcessor {
         final JSONArray articles = articleRepository.get(new Query()).getJSONArray(Keys.RESULTS);
 
         if (articles.length() <= 0) {
-            LOGGER.log(Level.FINEST, "No articles");
+            LOGGER.log(Level.TRACE, "No articles");
             return;
         }
 
@@ -270,7 +277,7 @@ public final class UpgradeProcessor {
 
                 if (0 == i % STEP) {
                     transaction.commit();
-                    LOGGER.log(Level.FINEST, "Updated some articles");
+                    LOGGER.log(Level.TRACE, "Updated some articles");
                 }
             }
 
@@ -278,7 +285,7 @@ public final class UpgradeProcessor {
                 transaction.commit();
             }
 
-            LOGGER.log(Level.FINEST, "Updated all articles");
+            LOGGER.log(Level.TRACE, "Updated all articles");
         } catch (final Exception e) {
             if (transaction.isActive()) {
                 transaction.rollback();

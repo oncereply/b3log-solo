@@ -57,7 +57,7 @@
                         <label for="blogHost">${blogHost1Label}</label>
                     </th>
                     <td>
-                        <input id="blogHost" type="text"/>
+                        <input id="blogHost" type="text" value="${servePath}" readonly="true" />
                     </td>
                 </tr>
                 <tr>
@@ -275,6 +275,14 @@
                             <option value="abstract">${abstractLabel}</option>
                             <option value="fullContent">${fullContentLabel}</option>
                         </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="feedOutputCnt">${feedOutputCnt1Label}</label>
+                    </th>
+                    <td>
+                        <input id="feedOutputCnt" class="normalInput" type="text"/>
                     </td>
                 </tr>
 

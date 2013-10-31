@@ -19,6 +19,7 @@ Without this configuration present, some functionality in the IDE may be limited
         <word>datastore</word>
         <word>ftl</word>
         <word>Gmail</word>
+        <word>Gravatar</word>
         <word>http</word>
         <word>json</word>
         <word>Latke</word>
@@ -37,6 +38,7 @@ Without this configuration present, some functionality in the IDE may be limited
         <word>sitemap</word>
         <word>struct</word>
         <word>structs</word>
+        <word>Swithches</word>
         <word>Upgrader</word>
         <word>Upgraders</word>
     </spellchecker-wordlist>
